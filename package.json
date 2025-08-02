@@ -1,0 +1,36 @@
+{
+  "name": "medusajs-payload-boilerplate",
+  "version": "1.0.0",
+  "description": "A boilerplate for Medusa.js 2.0 with Payload CMS v3 integration",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "cms",
+    "storefront",
+    "shared-types"
+  ],
+  "scripts": {
+    "dev": "concurrently \"cd backend && pnpm dev\" \"cd cms && pnpm dev\"",
+    "build": "concurrently \"cd backend && pnpm build\" \"cd cms && pnpm build\"",
+    "start": "concurrently \"cd backend && pnpm start\" \"cd cms && pnpm start\"",
+    "test": "concurrently \"cd backend && pnpm test\" \"cd cms && pnpm test\"",
+    "lint": "concurrently \"cd backend && pnpm lint\" \"cd cms && pnpm lint\"",
+    "clean": "rimraf node_modules && cd backend && rimraf node_modules && cd ../cms && rimraf node_modules"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "rimraf": "^5.0.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "medusajs",
+    "payload-cms",
+    "ecommerce",
+    "headless-cms",
+    "typescript"
+  ],
+  "author": "",
+  "license": "MIT"
+}

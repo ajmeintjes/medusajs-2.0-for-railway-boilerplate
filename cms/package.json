@@ -1,0 +1,70 @@
+{
+  "name": "cms",
+  "version": "1.0.0",
+  "description": "A blank template to get started with Payload 3.0",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "cross-env NODE_OPTIONS=\"--no-deprecation --max-old-space-size=8000\" next build",
+    "dev": "cross-env NODE_OPTIONS=--no-deprecation next dev",
+    "dev:with-medusa": "concurrently \"cross-env NODE_OPTIONS=--no-deprecation next dev\" \"cd .. && cd backend && pnpm dev\"",
+    "devsafe": "rm -rf .next && cross-env NODE_OPTIONS=--no-deprecation next dev",
+    "db:create-schema": "node -e \"import('pg').then(({ Client }) => { const client = new Client({ connectionString: process.env.DATABASE_URI }); client.connect().then(() => client.query(`CREATE SCHEMA IF NOT EXISTS ${process.env.DATABASE_SCHEMA || 'payload_cms'}`).then(() => { console.log('Schema created successfully'); process.exit(0); }).catch(err => { console.error('Error creating schema:', err); process.exit(1); })); });\"",
+    "db:init": "tsx scripts/init-db.ts",
+    "db:reset": "cross-env NODE_OPTIONS=--no-deprecation tsx scripts/reset-db.ts",
+    "generate:importmap": "cross-env NODE_OPTIONS=--no-deprecation payload generate:importmap",
+    "generate:types": "cross-env NODE_OPTIONS=--no-deprecation payload generate:types",
+    "lint": "cross-env NODE_OPTIONS=--no-deprecation next lint",
+    "payload": "cross-env NODE_OPTIONS=--no-deprecation payload",
+    "start": "cross-env NODE_OPTIONS=--no-deprecation next start",
+    "test": "pnpm run test:int && pnpm run test:e2e",
+    "test:e2e": "cross-env NODE_OPTIONS=\"--no-deprecation --no-experimental-strip-types\" pnpm exec playwright test",
+    "test:int": "cross-env NODE_OPTIONS=--no-deprecation vitest run --config ./vitest.config.mts"
+  },
+  "dependencies": {
+    "@payloadcms/next": "3.49.1",
+    "@payloadcms/payload-cloud": "3.49.1",
+    "@payloadcms/richtext-lexical": "3.49.1",
+    "@payloadcms/ui": "3.49.1",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "dotenv": "16.4.7",
+    "graphql": "^16.8.1",
+    "next": "15.4.4",
+    "payload": "3.49.1",
+    "pg": "^8.11.3",
+    "react": "19.1.0",
+    "sharp": "0.34.2",
+    "tsx": "^4.7.1",
+    "winston": "^3.11.0",
+    "@payloadcms/db-postgres": "3.49.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.54.1",
+    "@testing-library/react": "16.3.0",
+    "@types/node": "^22.5.4",
+    "@types/react": "19.1.8",
+    "@types/react-dom": "19.1.6",
+    "@vitejs/plugin-react": "4.5.2",
+    "eslint": "^9.16.0",
+    "eslint-config-next": "15.4.4",
+    "jsdom": "26.1.0",
+    "playwright": "1.54.1",
+    "playwright-core": "1.54.1",
+    "prettier": "^3.4.2",
+    "typescript": "5.7.3",
+    "vite-tsconfig-paths": "5.1.4",
+    "vitest": "3.2.3"
+  },
+  "engines": {
+    "node": "^18.20.2 || >=20.9.0",
+    "pnpm": "^9 || ^10"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "sharp",
+      "esbuild",
+      "unrs-resolver"
+    ]
+  }
+}
