@@ -22,7 +22,7 @@ import {
   MINIO_BUCKET,
   MEILISEARCH_HOST,
   MEILISEARCH_ADMIN_KEY
-} from 'lib/constants';
+} from './src/lib/constants';
 
 loadEnv(process.env.NODE_ENV, process.cwd());
 
@@ -41,7 +41,7 @@ const medusaConfig = {
     },
     build: {
       rollupOptions: {
-        external: ["@medusajs/dashboard"]
+        external: ["@medusajs/dashboard", "@medusajs/ui", "@react-email/components", "@medusajs/icons"]
       }
     }
   },
@@ -50,6 +50,10 @@ const medusaConfig = {
     disable: SHOULD_DISABLE_ADMIN,
   },
   modules: [
+    // Custom Spot Price Module
+    {
+      resolve: './src/modules/spot-price',
+    },
     {
       key: Modules.FILE,
       resolve: '@medusajs/file',
