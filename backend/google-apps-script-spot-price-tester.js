@@ -19,9 +19,11 @@
 
 // Update these constants with your actual backend details
 const BASE_URL = "https://your-medusa-backend-url.com"; // e.g., "https://your-app.railway.app"
-const API_KEY = "your_admin_api_key_here"; // Your MedusaJS admin API key
 const ADMIN_EMAIL = "admin@yourdomain.com"; // Admin email for authentication
 const ADMIN_PASSWORD = "your_admin_password"; // Admin password
+
+// Note: MedusaJS 2.0 uses session-based authentication, not API keys
+// The script will automatically authenticate and get a session token
 
 // API Endpoints
 const ENDPOINTS = {
@@ -31,6 +33,11 @@ const ENDPOINTS = {
   // Admin endpoints (require authentication)
   ADMIN_SPOT_PRICES: `${BASE_URL}/admin/spot-prices`,
   ADMIN_CREATE_SPOT_PRICE: `${BASE_URL}/admin/spot-prices`,
+  
+  // Optimized Google Sheets integration endpoint (RECOMMENDED)
+  GOOGLE_SHEETS_IMPORT: `${BASE_URL}/admin/spot-prices/google-sheets-import`,
+  
+  // Legacy endpoints (for testing compatibility)
   ADMIN_IMPORT_SPOT_PRICES: `${BASE_URL}/admin/spot-prices/import`,
   ADMIN_BULK_IMPORT: `${BASE_URL}/admin/spot-prices/bulk-import`,
   
@@ -572,11 +579,11 @@ function quickApiTest() {
 }
 
 /**
- * Send spot price data from sheet to your backend API (similar to your original function)
- * This replaces your original Supabase function with calls to your MedusaJS backend
+ * Send spot price data from sheet to your backend API (RECOMMENDED METHOD)
+ * Uses the optimized Google Sheets batch import endpoint
  */
 function sendSpotPriceDataToMedusaAPI() {
-  Logger.log("🚀 Sending spot price data to MedusaJS backend...");
+  Logger.log("🚀 Sending spot price data to MedusaJS backend (batch method)...");
   
   // Get authentication token
   const token = authenticateAdmin();
@@ -598,11 +605,97 @@ function sendSpotPriceDataToMedusaAPI() {
   
   Logger.log(`📊 Found ${spotPriceData.length} spot prices to send`);
   
+  try {
+    // Send all prices in a single batch request (much more efficient!)
+    const batchPayload = {
+      prices: spotPriceData.map(priceData => ({
+        metal_type: priceData.metal_type,
+        price_per_ounce: priceData.price_per_ounce,
+        currency: priceData.currency,
+        change_percentage_24h: priceData.change_percentage_24h,
+        source: priceData.source,
+        timestamp: new Date().toISOString()
+      }))
+    };
+    
+    const options = {
+      method: "POST",
+      headers: createAuthHeaders(token),
+      payload: JSON.stringify(batchPayload),
+      muteHttpExceptions: true
+    };
+    
+    const response = UrlFetchApp.fetch(ENDPOINTS.GOOGLE_SHEETS_IMPORT, options);
+    const responseCode = response.getResponseCode();
+    const responseData = JSON.parse(response.getContentText());
+    
+    // Update status in sheet
+    const settingsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEETS.SETTINGS);
+    
+    if (responseCode === 200 && responseData.summary) {
+      const summary = responseData.summary;
+      Logger.log(`✅ Batch import successful!`);
+      Logger.log(`📊 Summary: ${summary.successful}/${summary.total_received} prices imported (${summary.success_rate}%)`);
+      
+      if (settingsSheet) {
+        const statusMessage = `✅ Batch: ${summary.successful}/${summary.total_received} prices - ${new Date().toLocaleString()}`;
+        settingsSheet.getRange("G6").setValue(statusMessage);
+        settingsSheet.getRange("G8").setValue(JSON.stringify(responseData.results));
+      }
+      
+      logTestResult("Batch Send Spot Price Data", true, responseData);
+      
+    } else {
+      Logger.log(`❌ Batch import failed: ${responseCode}`);
+      Logger.log(`Error: ${responseData.message || 'Unknown error'}`);
+      
+      if (settingsSheet) {
+        settingsSheet.getRange("G6").setValue(`❌ Batch failed: ${responseCode} - ${new Date().toLocaleString()}`);
+      }
+      
+      logTestResult("Batch Send Spot Price Data", false, responseData);
+    }
+    
+  } catch (error) {
+    Logger.log(`❌ Exception during batch send: ${error.toString()}`);
+    const settingsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEETS.SETTINGS);
+    if (settingsSheet) {
+      settingsSheet.getRange("G6").setValue(`❌ Error: ${error.message} - ${new Date().toLocaleString()}`);
+    }
+    logTestResult("Batch Send Spot Price Data", false, null, error.toString());
+  }
+  
+  Logger.log("🏁 Batch data send operation complete!");
+}
+
+/**
+ * Legacy method - sends spot prices individually (SLOWER)
+ * Use sendSpotPriceDataToMedusaAPI() instead for better performance
+ */
+function sendSpotPriceDataIndividually() {
+  Logger.log("🚀 Sending spot price data individually (legacy method)...");
+  
+  // Get authentication token
+  const token = authenticateAdmin();
+  if (!token) {
+    Logger.log("❌ Failed to authenticate - cannot send data");
+    return;
+  }
+  
+  // Get data from sheet
+  const spotPriceData = getSpotPriceDataFromSheet();
+  if (spotPriceData.length === 0) {
+    Logger.log("❌ No valid data to send");
+    return;
+  }
+  
+  Logger.log(`📊 Found ${spotPriceData.length} spot prices to send individually`);
+  
   const results = [];
   let successCount = 0;
   let failureCount = 0;
   
-  // Send each spot price individually
+  // Send each spot price individually (slower but more detailed feedback)
   for (const priceData of spotPriceData) {
     try {
       const options = {
@@ -653,7 +746,7 @@ function sendSpotPriceDataToMedusaAPI() {
   const settingsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEETS.SETTINGS);
   if (settingsSheet) {
     const statusMessage = successCount > 0 ? 
-      `✅ Sent ${successCount}/${spotPriceData.length} prices - ${new Date().toLocaleString()}` :
+      `✅ Individual: ${successCount}/${spotPriceData.length} prices - ${new Date().toLocaleString()}` :
       `❌ Failed to send data - ${new Date().toLocaleString()}`;
     settingsSheet.getRange("G6").setValue(statusMessage);
     
@@ -661,15 +754,14 @@ function sendSpotPriceDataToMedusaAPI() {
     settingsSheet.getRange("G8").setValue(JSON.stringify(results));
   }
   
-  // Log summary
-  Logger.log(`\n📊 DATA SEND SUMMARY:`);
+  Logger.log(`\n📊 INDIVIDUAL SEND SUMMARY:`);
   Logger.log(`Total prices: ${spotPriceData.length}`);
   Logger.log(`Successful: ${successCount}`);
   Logger.log(`Failed: ${failureCount}`);
   
-  logTestResult("Send Spot Price Data", successCount > 0, results);
+  logTestResult("Individual Send Spot Price Data", successCount > 0, results);
   
-  Logger.log("🏁 Data send operation complete!");
+  Logger.log("🏁 Individual data send operation complete!");
 }
 
 // ============================================================================
@@ -691,8 +783,9 @@ function setupTestSheet() {
     configSheet.getRange("A1").setValue("Configuration");
     configSheet.getRange("A3").setValue("Backend URL:");
     configSheet.getRange("B3").setValue(BASE_URL);
-    configSheet.getRange("A4").setValue("API Key:");
-    configSheet.getRange("B4").setValue(API_KEY);
+    // Note: No API key needed for MedusaJS 2.0 - uses session authentication
+    configSheet.getRange("A4").setValue("Authentication:");
+    configSheet.getRange("B4").setValue("Session-based (email/password)");
     configSheet.getRange("A5").setValue("Admin Email:");
     configSheet.getRange("B5").setValue(ADMIN_EMAIL);
     
@@ -723,9 +816,7 @@ function validateConfiguration() {
     issues.push("BASE_URL needs to be updated with your actual backend URL");
   }
   
-  if (API_KEY === "your_admin_api_key_here") {
-    issues.push("API_KEY needs to be updated with your actual admin API key");
-  }
+  // Note: No API key validation needed for MedusaJS 2.0
   
   if (ADMIN_EMAIL === "admin@yourdomain.com") {
     issues.push("ADMIN_EMAIL needs to be updated with your actual admin email");
